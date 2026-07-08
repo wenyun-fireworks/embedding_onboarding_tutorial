@@ -1,0 +1,30 @@
+{"_id": "q01", "text": "How do I take a single card payment from a buyer?"}
+{"_id": "q02", "text": "How can I give a customer their money back after they already paid?"}
+{"_id": "q03", "text": "What's the way to bill someone automatically every month?"}
+{"_id": "q04", "text": "How do I get notified on my backend when a payment goes through?"}
+{"_id": "q05", "text": "A cardholder is contesting a transaction with their bank. What do I do?"}
+{"_id": "q06", "text": "When does the money I collect actually land in my bank account?"}
+{"_id": "q07", "text": "Where do I keep a returning buyer's details so I don't ask for their card again?"}
+{"_id": "q08", "text": "How do I let a shopper reuse a card they saved earlier?"}
+{"_id": "q09", "text": "How do I make sure a retried request doesn't charge someone twice?"}
+{"_id": "q10", "text": "How is the bill for a billing period itemized with taxes and discounts?"}
+{"_id": "q11", "text": "Can the platform figure out sales tax and VAT for me based on the buyer's location?"}
+{"_id": "q12", "text": "How do I stop fraudulent or high-risk transactions automatically?"}
+{"_id": "q13", "text": "I run a marketplace and need to pay several sellers out of one payment. How?"}
+{"_id": "q14", "text": "Can I charge people in their own money and still get paid in mine?"}
+{"_id": "q15", "text": "What happens automatically when a recurring card charge is declined?"}
+{"_id": "q16", "text": "How can I try the API with fake cards without moving real money?"}
+{"_id": "q17", "text": "How does my server prove who it is when calling the API?"}
+{"_id": "q18", "text": "Why am I getting a 429 and how should I slow my requests down?"}
+{"_id": "q19", "text": "How do I tag objects with my own internal order reference?"}
+{"_id": "q20", "text": "How do I add the extra bank verification step required in some regions?"}
+{"_id": "q21", "text": "Is there a way to collect payment without building my own checkout page?"}
+{"_id": "q22", "text": "How do I apply a promo code to lower what a subscriber pays?"}
+{"_id": "q23", "text": "If a customer upgrades mid-month, how is the price difference handled?"}
+{"_id": "q24", "text": "Can the system email a receipt to the buyer after they pay?"}
+{"_id": "q25", "text": "How do I export transactions and fees for my accountant to reconcile?"}
+{"_id": "q26", "text": "Is there an official Python or Node library instead of raw HTTP?"}
+{"_id": "q27", "text": "How do I page through a long list of objects from a list endpoint?"}
+{"_id": "q28", "text": "What does the response look like when a card is declined or a call fails?"}
+{"_id": "q29", "text": "What authorization do I need before I can debit someone's bank account?"}
+{"_id": "q30", "text": "How do I reserve funds now and actually charge the card later?"}

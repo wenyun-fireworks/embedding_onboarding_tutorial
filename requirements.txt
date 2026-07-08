@@ -1,0 +1,22 @@
+# Client-side tooling for the tutorial. Training runs on Fireworks infra (the
+# Training SDK provisions the GPU trainer for you), so you do NOT need a local
+# GPU or torch build for training.
+#
+# The Fireworks Training SDK + cookbook recipes provide the trainer API used in
+# step 3 (`training.recipes.embedding_loop`). Install them from the public repos:
+#   pip install fireworks-ai            # embeddings/inference client + firectl auth
+#   pip install tinker                  # trainer protocol used by the cookbook recipe
+#   git clone https://github.com/fw-ai/cookbook && pip install -e cookbook
+#
+# Everything below is only needed on the client for data prep + evaluation:
+numpy>=1.26
+requests>=2.31
+pytrec_eval-terrier>=0.5.6
+python-dotenv>=1.0
+
+# Step 4 only: consolidating checkpoint shards (src/reshard_checkpoint.py).
+# torch is heavy (~GBs) — only install these if you run the reshard locally, or
+# point RESHARD_PY/PY at an env that already has them.
+safetensors>=0.4
+huggingface_hub>=0.24
+torch>=2.1
