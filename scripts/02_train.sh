@@ -4,8 +4,8 @@
 #   export COOKBOOK_DIR=/path/to/cookbook   # https://github.com/fw-ai/cookbook
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-PY="${PY:-python3}"
 . "$HERE/scripts/_load_env.sh"; _load_env "$HERE/.env"
+PY="${PY:-python3}"
 
 if [ -z "${COOKBOOK_DIR:-}" ]; then
   echo "Set COOKBOOK_DIR to your local clone of https://github.com/fw-ai/cookbook" >&2

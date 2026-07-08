@@ -57,8 +57,14 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-  The scripts run `$PY` (default `python3`), so if you used a virtualenv you must
-  point `PY` at it (e.g. `PY=$(pwd)/.venv/bin/python`) — see [Setup](#setup).
+  `requirements.txt` installs **only** the local data-prep/eval tooling
+  (numpy/requests/pytrec_eval/torch/etc.); `fireworks-ai`, `tinker`, and the
+  cookbook are **not** installed by it and must be added separately (below) into
+  the same venv that `PY` points at.
+
+  The scripts run `$PY` (default `python3`), so if you used a virtualenv point
+  `PY` at it (in `.env` or exported, e.g. `PY=$(pwd)/.venv/bin/python`) — see
+  [Setup](#setup).
 - `fireworks-ai`, `tinker`, and the [cookbook](https://github.com/fw-ai/cookbook)
   installed (the cookbook via `git clone` — see `requirements.txt`).
 - A validated `POLICY_TRAINER` training shape for your base model (Step 0).
@@ -70,18 +76,18 @@ step: `scripts/` holds the numbered stages (`01_prepare_data.sh` …
 `06_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
 (copy to `.env`) configures everything below.
 
-Two paths the scripts read from the **environment** (not just `.env`) — export
-them before running the steps (`_load_env.sh` won't override an already-exported
-value):
+Two local paths the scripts need — set them **in `.env`** or **export** them
+before running the steps (`_load_env.sh` won't override an already-exported
+value, so an exported value wins):
 
 ```bash
-export COOKBOOK_DIR=/path/to/cookbook          # your clone of https://github.com/fw-ai/cookbook (Step 2)
-export PY=/path/to/venv/bin/python             # the python where you installed the deps
+COOKBOOK_DIR=/path/to/cookbook          # your clone of https://github.com/fw-ai/cookbook (Step 2)
+PY=/path/to/venv/bin/python             # the python where you installed the deps
 ```
 
-`PY` defaults to `python3`, so if you installed the deps in a virtualenv you
-**must** set `PY` (or activate the venv) or the steps run against the wrong
-interpreter and imports fail.
+`PY` defaults to `python3`, so if you installed the deps in a virtualenv set
+`PY` (in `.env` or exported) — or activate the venv — otherwise the steps run
+against the wrong interpreter and imports fail.
 
 ## Step 0 — Base model + validated training shape (public, pre-created)
 
@@ -205,6 +211,10 @@ firectl delete deployment "$DEPLOYMENT_ID" -a "$FIREWORKS_ACCOUNT_ID" --ignore-c
 firectl delete model "$EMBEDDING_MODEL_ID"  -a "$FIREWORKS_ACCOUNT_ID"
 firectl delete model "$TRAINED_MODEL_ID"    -a "$FIREWORKS_ACCOUNT_ID"
 ```
+
+> Delete the deployment **first** and wait for it to reach `DELETED` before
+> deleting the model — otherwise `firectl delete model` fails with
+> `FailedPrecondition: cannot delete model with active deployments`.
 
 ## Notes
 

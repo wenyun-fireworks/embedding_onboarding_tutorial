@@ -2,8 +2,8 @@
 # Step 6: test the deployed embedding model and measure the fine-tuning lift.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-PY="${PY:-python3}"
 . "$HERE/scripts/_load_env.sh"; _load_env "$HERE/.env"
+PY="${PY:-python3}"
 : "${FIREWORKS_API_KEY:?set FIREWORKS_API_KEY (see .env)}"
 : "${FIREWORKS_ACCOUNT_ID:?set FIREWORKS_ACCOUNT_ID (see .env)}"
 : "${EMBEDDING_MODEL_ID:?set EMBEDDING_MODEL_ID (see .env)}"
@@ -17,7 +17,7 @@ FT_REF="accounts/${FIREWORKS_ACCOUNT_ID}/models/${EMBEDDING_MODEL_ID}#accounts/$
 echo "=== raw /v1/embeddings smoke test ==="
 curl -s -H "Authorization: Bearer $FIREWORKS_API_KEY" -H 'Content-Type: application/json' \
   -d "{\"model\":\"${FT_REF}\",\"input\":[\"How do I refund a payment?\"]}" \
-  "${FIREWORKS_BASE_URL:-https://api.fireworks.ai}/inference/v1/embeddings" | head -c 200
+  "${FIREWORKS_BASE_URL:-https://api.fireworks.ai}/inference/v1/embeddings" | head -c 200 || true
 echo; echo
 
 echo "=== retrieval on held-out queries: BASE vs FINE-TUNED ==="
