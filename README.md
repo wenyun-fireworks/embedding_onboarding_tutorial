@@ -50,8 +50,17 @@ This tutorial supports all three versions of the Qwen3 Embedding model family:
 ## Prerequisites
 
 - Fireworks account + API key; `firectl` on `PATH`.
-- Python 3.10+ with `fireworks-ai`, `tinker`, and the
-[cookbook](https://github.com/fw-ai/cookbook) installed; `pip install -r requirements.txt`.
+- Python 3.10+. **Create and activate a virtualenv**, then install the deps:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+  The scripts run `$PY` (default `python3`), so if you used a virtualenv you must
+  point `PY` at it (e.g. `PY=$(pwd)/.venv/bin/python`) — see [Setup](#setup).
+- `fireworks-ai`, `tinker`, and the [cookbook](https://github.com/fw-ai/cookbook)
+  installed (the cookbook via `git clone` — see `requirements.txt`).
 - A validated `POLICY_TRAINER` training shape for your base model (Step 0).
 
 ## Setup
@@ -60,6 +69,19 @@ The runnable scripts and all the code live in this repo, so you can dig into any
 step: `scripts/` holds the numbered stages (`01_prepare_data.sh` …
 `06_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
 (copy to `.env`) configures everything below.
+
+Two paths the scripts read from the **environment** (not just `.env`) — export
+them before running the steps (`_load_env.sh` won't override an already-exported
+value):
+
+```bash
+export COOKBOOK_DIR=/path/to/cookbook          # your clone of https://github.com/fw-ai/cookbook (Step 2)
+export PY=/path/to/venv/bin/python             # the python where you installed the deps
+```
+
+`PY` defaults to `python3`, so if you installed the deps in a virtualenv you
+**must** set `PY` (or activate the venv) or the steps run against the wrong
+interpreter and imports fail.
 
 ## Step 0 — Base model + validated training shape (public, pre-created)
 
@@ -124,7 +146,7 @@ bash scripts/02_train.sh          # ~30 steps; promotes model $TRAINED_MODEL_ID 
 ## Step 3 — Download the checkpoint
 
 ```bash
-bash scripts/03_download_checkpoint.sh   # ~16 GB → export/$TRAINED_MODEL_ID/.../hf/
+bash scripts/03_download_checkpoint.sh   # ~1–16 GB (0.6B ≈ 1.2 GB, 8B ≈ 16 GB) → export/$TRAINED_MODEL_ID/.../hf/
 ```
 
 ## Step 4 — Re-upload as an embedding model
@@ -165,6 +187,14 @@ Delete the deployment when done to stop billing (see [Cleanup](#cleanup)).
 ```bash
 bash scripts/06_test_inference.sh   # /v1/embeddings smoke + base-vs-fine-tuned nDCG@10 / Recall@10 / MRR
 ```
+
+The baseline is a strong off-the-shelf **serverless** embedding model
+(`EVAL_BASE_MODEL`, default `accounts/fireworks/models/qwen3-embedding-8b`) —
+**not** the tunable training `BASE_MODEL` from Step 2, which isn't served on
+serverless `/v1/embeddings`. It's overridable via `EVAL_BASE_MODEL` and optional:
+the base leg is non-fatal, so the fine-tuned metrics and top-1 retrievals still
+print even if the baseline errors. This is the "beat off-the-shelf open-source"
+comparison from the [Why](#why-full-parameter-embedding-tuning) section.
 
 ## Cleanup
 

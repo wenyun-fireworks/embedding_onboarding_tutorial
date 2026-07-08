@@ -19,6 +19,11 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 : "${TRAINED_MODEL_ID:?set TRAINED_MODEL_ID (see .env)}"
 : "${EMBEDDING_MODEL_ID:?set EMBEDDING_MODEL_ID (see .env)}"
 MAX_SHARD_SIZE="${MAX_SHARD_SIZE:-5GB}"
+# Model metadata — derived from the chosen base/tokenizer so a 0.6B/4B model is
+# not mislabeled as 8B. Both are overridable via env.
+TOKENIZER_MODEL="${TOKENIZER_MODEL:-Qwen/Qwen3-Embedding-8B}"
+DISPLAY_NAME="${DISPLAY_NAME:-${TOKENIZER_MODEL##*/} Fine-tuned Embedding}"
+HF_URL="${HF_URL:-https://huggingface.co/${TOKENIZER_MODEL}}"
 # Python with torch + safetensors + huggingface_hub for the reshard step.
 RESHARD_PY="${RESHARD_PY:-${PY:-python3}}"
 
@@ -51,8 +56,8 @@ echo "uploading from $UPLOAD_DIR"
 
 firectl create model "$EMBEDDING_MODEL_ID" "$UPLOAD_DIR" \
   --embedding \
-  --display-name "Qwen3 Fine-tuned Embedding" \
-  --hugging-face-url "https://huggingface.co/Qwen/Qwen3-Embedding-8B" \
+  --display-name "$DISPLAY_NAME" \
+  --hugging-face-url "$HF_URL" \
   --api-key "$FIREWORKS_API_KEY" -a "$FIREWORKS_ACCOUNT_ID"
 
 echo
