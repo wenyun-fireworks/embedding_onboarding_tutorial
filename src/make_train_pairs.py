@@ -6,7 +6,7 @@ The Fireworks embedding trainer takes one positive pair per line:
 In-batch negatives are generated automatically, so no negatives are needed.
 
 We emit only the TRAIN split; the eval split is held out for measuring
-before/after retrieval quality in step 6.
+before/after retrieval quality in step 4.
 """
 from __future__ import annotations
 
