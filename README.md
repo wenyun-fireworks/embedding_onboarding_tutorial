@@ -1,9 +1,11 @@
 # Full-Parameter Embedding Fine-Tuning on Fireworks — End-to-End
 
-Minimal runbook: **train → download checkpoint → re-upload as embedding model →
-deploy → test**. Training runs on the Fireworks Training SDK (GPU provisioned for
-you) via the cookbook recipe `training.recipes.embedding_loop`. Commands mirror
-the numbered scripts in `scripts/`.
+Minimal runbook: **prepare data → train → deploy → test**. Training runs on the
+Fireworks Training SDK (GPU provisioned for you) via the cookbook recipe
+`training.recipes.embedding_loop`. The trained checkpoint is deployed
+**directly** — a dedicated deployment serves `/v1/embeddings` straight from it,
+with no checkpoint download, no shard consolidation, and no re-upload as an
+embedding model. Commands mirror the numbered scripts in `scripts/`.
 
 ## How it works
 
@@ -14,19 +16,17 @@ the numbered scripts in `scripts/`.
  ┌──────────────────┐   Fireworks Training SDK (embedding_loop recipe):
  │ 1. Prepare data  │   provisions a trainer, runs contrastive InfoNCE with
  │ 2. Train (SDK)   │   in-batch negatives, promotes the final checkpoint
- └──────────────────┘   to a model
-        │  firectl download model
+ └──────────────────┘   to a model ($TRAINED_MODEL_ID)
+        │  firectl create deployment  (deploy the trained model directly)
         ▼
  ┌──────────────────┐
- │ 3. Download ckpt │   pull the trained checkpoint to ./export/
- │ 4. Re-upload as  │   firectl create model --embedding   ← makes it servable
- │    embedding     │       on /v1/embeddings
- │ 5. Deploy        │   firectl create deployment
+ │ 3. Deploy        │   dedicated deployment serves /v1/embeddings straight from
+ │                  │   the trained model — no download / reshard / re-upload
  └──────────────────┘
         │  /v1/embeddings
         ▼
  ┌──────────────────┐
- │ 6. Inference +   │   base vs fine-tuned retrieval metrics (nDCG@10, Recall@10, MRR)
+ │ 4. Inference +   │   base vs fine-tuned retrieval metrics (nDCG@10, Recall@10, MRR)
  │    eval          │
  └──────────────────┘
 ```
@@ -73,7 +73,7 @@ pip install -r requirements.txt
 
 The runnable scripts and all the code live in this repo, so you can dig into any
 step: `scripts/` holds the numbered stages (`01_prepare_data.sh` …
-`06_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
+`04_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
 (copy to `.env`) configures everything below.
 
 Two local paths the scripts need — set them **in `.env`** or **export** them
@@ -132,7 +132,7 @@ positive is the passage `title` + `\n` + `text`:
 ```
 
 Only the **train** split is emitted; the eval split is held out for the
-before/after retrieval metrics in Step 6. **In-batch negatives are generated
+before/after retrieval metrics in Step 4. **In-batch negatives are generated
 automatically** during training, so you never supply negatives. To use your own
 data, replace the files in `data/` — or just drop in your own `train_pairs.jsonl`
 with the same `{"query": ..., "positive": ...}` shape.
@@ -149,38 +149,25 @@ bash scripts/01_prepare_data.sh   # → data/train_pairs.jsonl (22 train, 8 eval
 bash scripts/02_train.sh          # ~30 steps; promotes model $TRAINED_MODEL_ID (Kind HF_BASE_MODEL)
 ```
 
-## Step 3 — Download the checkpoint
+## Step 3 — Deploy the trained model directly
 
 ```bash
-bash scripts/03_download_checkpoint.sh   # ~1–16 GB (0.6B ≈ 1.2 GB, 8B ≈ 16 GB) → export/$TRAINED_MODEL_ID/.../hf/
+bash scripts/03_deploy.sh
 ```
 
-## Step 4 — Re-upload as an embedding model
-
-```bash
-bash scripts/04_upload_embedding_model.sh   # consolidate shards, then firectl create model … --embedding
-firectl get model "$EMBEDDING_MODEL_ID" -a "$FIREWORKS_ACCOUNT_ID"   # wait for State: READY
-```
-
-The `**--embedding**` flag sets `Kind: EMBEDDING_MODEL`, which is what makes the
-model servable on `/v1/embeddings`.
-
-The upload script automatically consolidates the many small fine-tune shards into
-a few larger ones before uploading, so the deployment's model-file registration
-stays under the serving backend's request-size limit.
-
-## Step 5 — Deploy
-
-```bash
-bash scripts/05_deploy.sh
-```
-
-Creates a **self-serve dedicated deployment** with plain `firectl create deployment` (no admin tooling)
+Creates a **self-serve dedicated deployment** of the trained model with plain
+`firectl create deployment` (no admin tooling). The trained checkpoint is
+promoted as `Kind: HF_BASE_MODEL`, but a **dedicated deployment serves it on
+`/v1/embeddings` directly** — the serving engine pools the model's hidden states,
+so there is no need to download the checkpoint, consolidate shards, or re-upload
+it as an embedding model. (Only **serverless** `/v1/embeddings` requires
+`Kind: EMBEDDING_MODEL`; a dedicated deployment does not.)
 
 Pick the deploy GPU via `ACCELERATOR_TYPE` in `.env` (default
-`NVIDIA_B200_180GB`); if you hit capacity or quota limits, switch to another GPU
-— see `scripts/05_deploy.sh` for the options and details. Then grab the
-deployment id:
+`NVIDIA_H100_80GB`); if you hit capacity or quota limits, switch to another GPU.
+`REGION` defaults to `us-iowa-1` (co-located with the GCS-backed model
+artifacts) so the replica's model download doesn't stall on a far cluster; set it
+to another region if needed, or empty for GLOBAL. Then grab the deployment id:
 
 ```bash
 firectl list deployments -a "$FIREWORKS_ACCOUNT_ID"   # copy the id → DEPLOYMENT_ID in .env
@@ -188,10 +175,10 @@ firectl list deployments -a "$FIREWORKS_ACCOUNT_ID"   # copy the id → DEPLOYME
 
 Delete the deployment when done to stop billing (see [Cleanup](#cleanup)).
 
-## Step 6 — Test
+## Step 4 — Test
 
 ```bash
-bash scripts/06_test_inference.sh   # /v1/embeddings smoke + base-vs-fine-tuned nDCG@10 / Recall@10 / MRR
+bash scripts/04_test_inference.sh   # /v1/embeddings smoke + base-vs-fine-tuned nDCG@10 / Recall@10 / MRR
 ```
 
 The baseline is a strong off-the-shelf **serverless** embedding model
@@ -207,8 +194,7 @@ comparison from the [Why](#why-full-parameter-embedding-tuning) section.
 ```bash
 # deployment first (billing); --ignore-checks if it has served requests
 firectl delete deployment "$DEPLOYMENT_ID" -a "$FIREWORKS_ACCOUNT_ID" --ignore-checks
-# then the models you created (the shared base can be kept for future fine-tunes)
-firectl delete model "$EMBEDDING_MODEL_ID"  -a "$FIREWORKS_ACCOUNT_ID"
+# then the model you created (the shared base can be kept for future fine-tunes)
 firectl delete model "$TRAINED_MODEL_ID"    -a "$FIREWORKS_ACCOUNT_ID"
 ```
 

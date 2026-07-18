@@ -71,8 +71,8 @@ def main() -> None:
           f"epochs={args.epochs} batch={args.batch_size} -> model id '{args.output_model_id}'")
     metrics = embedding_loop.main(config)
     print("Training complete. Final metrics:", metrics)
-    print(f"\nNext: download this model's checkpoint with\n"
-          f"  firectl download model {args.output_model_id} ./export/{args.output_model_id}")
+    print(f"\nNext: deploy this model directly with scripts/03_deploy.sh "
+          f"(TRAINED_MODEL_ID={args.output_model_id}) — no download/re-upload needed.")
 
 
 if __name__ == "__main__":
