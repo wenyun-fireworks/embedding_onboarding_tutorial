@@ -51,7 +51,9 @@ def _cos(a, b):
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--model", required=True, help="deployment ref: model#deployment")
-    p.add_argument("--tokenizer", required=True, help="HF tokenizer matching the model, e.g. Qwen/Qwen3-0.6B")
+    p.add_argument("--tokenizer", required=True,
+                   help="Qwen3-Embedding tokenizer matching the model (appends <|endoftext|>), "
+                        "e.g. Qwen/Qwen3-Embedding-0.6B")
     p.add_argument("--threshold", type=float, default=0.9999,
                    help="min cosine(raw, ids) required to pass (default 0.9999)")
     p.add_argument("--n", type=int, default=4, help="number of corpus passages to test")

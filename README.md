@@ -128,15 +128,18 @@ one row below; the trained/embedding models you create land in your account.
 
 | Model      | BASE_MODEL                                              | TRAINING_SHAPE                                                                  | TOKENIZER         |
 | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-0-6b-ft-base` | `accounts/fireworks/trainingShapes/qwen3-embedding-base-0-6b/versions/yn5j1jk9` | `Qwen/Qwen3-0.6B` |
-| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-4b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-4b/versions/b5dzfhsp`   | `Qwen/Qwen3-4B`   |
-| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-8b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-8b/versions/e3oirzs4`   | `Qwen/Qwen3-8B`   |
+| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-0-6b-ft-base` | `accounts/fireworks/trainingShapes/qwen3-embedding-base-0-6b/versions/yn5j1jk9` | `Qwen/Qwen3-Embedding-0.6B` |
+| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-4b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-4b/versions/b5dzfhsp`   | `Qwen/Qwen3-Embedding-4B`   |
+| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-8b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-8b/versions/e3oirzs4`   | `Qwen/Qwen3-Embedding-8B`   |
 
 
-These are **tunable bases** with a consistent tokenizer (the end-thinking token
-`</think>` encodes as a single token), so the fine-tune inherits it and serves
-directly with no tokenizer fix‑up. To stand up your own base from scratch you'd
-register a tunable base and create + validate a matching `POLICY_TRAINER` shape.
+These are **tunable bases** whose vocab matches the Qwen3-Embedding tokenizer, so
+the fine-tune serves directly with no tokenizer fix‑up. Use the **`Qwen/Qwen3-Embedding-<size>`**
+tokenizer (above), **not** the base-LM `Qwen/Qwen3-<size>`: only the embedding
+tokenizer's post-processor appends `<|endoftext|>` with `add_special_tokens=True`,
+so the recipe's `pooling="last"` trains on the EOS token and matches the embedding
+serving path. To stand up your own base from scratch you'd register a tunable base
+and create + validate a matching `POLICY_TRAINER` shape.
 
 Step 5 deploys with a public **embedding deployment shape** (also owned by
 `accounts/fireworks`); pick the one matching your size:

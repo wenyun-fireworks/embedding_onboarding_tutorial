@@ -14,5 +14,6 @@ requests>=2.31
 pytrec_eval-terrier>=0.5.6
 python-dotenv>=1.0
 # Client-side tokenizer for the step-6 input-form invariance check (raw text vs
-# pre-tokenized input_ids). Needs the model's tokenizer, e.g. Qwen/Qwen3-0.6B.
+# pre-tokenized input_ids). Needs the model's Qwen3-Embedding tokenizer (appends
+# <|endoftext|>), e.g. Qwen/Qwen3-Embedding-0.6B.
 transformers>=4.51
