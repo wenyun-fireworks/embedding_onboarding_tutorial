@@ -24,8 +24,10 @@ ACCELERATOR_TYPE="${ACCELERATOR_TYPE:-NVIDIA_H100_80GB}"
 # Pin placement to a region co-located with your model's artifacts. Default
 # GLOBAL placement can land the replica on a cluster where the cross-cloud model
 # download stalls; a same-cloud region (e.g. us-iowa-1 for GCS artifacts) is more
-# reliable. Leave REGION empty for GLOBAL.
-REGION="${REGION:-us-iowa-1}"
+# reliable. Set REGION to an empty string for GLOBAL placement (needed when your
+# account holds global rather than region-scoped GPU quota). Only an *unset*
+# REGION falls back to us-iowa-1; an explicit REGION= stays GLOBAL.
+REGION="${REGION-us-iowa-1}"
 REGION_FLAG=(); [ -n "$REGION" ] && REGION_FLAG=(--region "$REGION")
 
 firectl create deployment "accounts/${FIREWORKS_ACCOUNT_ID}/models/${TRAINED_MODEL_ID}" \

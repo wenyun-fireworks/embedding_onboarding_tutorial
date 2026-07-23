@@ -98,11 +98,11 @@ validated `POLICY_TRAINER` training shapes are **public** (owned by
 one row below; the trained/embedding models you create land in your account.
 
 
-| Model      | BASE_MODEL                                            | TRAINING_SHAPE                                                                  | TOKENIZER         |
-| ---------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-base-0-6b` | `accounts/fireworks/trainingShapes/qwen3-embedding-base-0-6b/versions/yn5j1jk9` | `Qwen/Qwen3-0.6B` |
-| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-base-4b`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-4b/versions/b5dzfhsp`   | `Qwen/Qwen3-4B`   |
-| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-base-8b`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-8b/versions/e3oirzs4`   | `Qwen/Qwen3-8B`   |
+| Model      | BASE_MODEL                                              | TRAINING_SHAPE                                                                  | TOKENIZER         |
+| ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
+| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-0-6b-ft-base` | `accounts/fireworks/trainingShapes/qwen3-embedding-base-0-6b/versions/yn5j1jk9` | `Qwen/Qwen3-0.6B` |
+| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-4b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-4b/versions/b5dzfhsp`   | `Qwen/Qwen3-4B`   |
+| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-8b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-8b/versions/e3oirzs4`   | `Qwen/Qwen3-8B`   |
 
 
 These are **tunable bases** with a consistent tokenizer (the end-thinking token
