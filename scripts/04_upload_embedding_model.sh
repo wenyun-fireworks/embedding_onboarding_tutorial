@@ -35,30 +35,10 @@ UPLOAD_DIR="$(dirname "$CFG")"
 # and our validated one) don't ship it. Keeps the uploaded file set clean.
 rm -f "$UPLOAD_DIR/model.weight.spec.json"
 
-# Ensure the sentence-transformers pooling module is present. The embedding
-# serving loads the model via sentence_transformers.SentenceTransformer(model_dir),
-# which needs 1_Pooling/ to apply last-token pooling AND the tokenizer's
-# EOS-appending post-processor (so raw text is tokenized as "...<|endoftext|>",
-# matching the reference Qwen3-Embedding models and making embeddings input-form
-# invariant). The trainer's HF export lists 1_Pooling in modules.json but does not
-# emit the directory, so recreate it from the model's hidden size.
-if [ ! -f "$UPLOAD_DIR/1_Pooling/config.json" ]; then
-  DIM="$("${PY:-python3}" -c "import json;print(json.load(open('$UPLOAD_DIR/config.json'))['hidden_size'])")"
-  echo "adding 1_Pooling/config.json (word_embedding_dimension=$DIM, last-token pooling)"
-  mkdir -p "$UPLOAD_DIR/1_Pooling"
-  cat > "$UPLOAD_DIR/1_Pooling/config.json" <<JSON
-{
-  "word_embedding_dimension": $DIM,
-  "pooling_mode_cls_token": false,
-  "pooling_mode_mean_tokens": false,
-  "pooling_mode_max_tokens": false,
-  "pooling_mode_mean_sqrt_len_tokens": false,
-  "pooling_mode_weightedmean_tokens": false,
-  "pooling_mode_lasttoken": true,
-  "include_prompt": true
-}
-JSON
-fi
+# Note: no 1_Pooling/ directory is needed. The correct last-token pooling +
+# <|endoftext|> tokenization is provided by the embedding DEPLOYMENT SHAPE at
+# deploy time (step 5), not by files in the checkpoint (verified: uploading
+# without 1_Pooling still passes the step-6 input-form invariance check).
 
 echo "uploading from $UPLOAD_DIR"
 
