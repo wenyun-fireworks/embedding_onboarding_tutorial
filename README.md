@@ -78,24 +78,27 @@ This tutorial supports all three versions of the Qwen3 Embedding model family:
 ## Prerequisites
 
 - Fireworks account + API key; `firectl` on `PATH`.
-- Python 3.10+. **Create and activate a virtualenv**, then install the deps:
+- Python 3.11+. **Create and activate a virtualenv**, then install the deps:
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pip install 'fireworks-ai[training]'
+git clone https://github.com/fw-ai/cookbook
+pip install -e cookbook/training
 ```
 
-  `requirements.txt` installs **only** the local data-prep/eval tooling
-  (numpy/requests/pytrec_eval/torch/etc.); `fireworks-ai`, `tinker`, and the
-  cookbook are **not** installed by it and must be added separately (below) into
-  the same venv that `PY` points at.
+  `requirements.txt` installs **only** the local data-prep/eval tooling.
+  Install the Training SDK through its `training` extra so it pins a compatible
+  `tinker`; installing the latest `tinker` separately may be incompatible with
+  the SDK. Install the cookbook's `training/` package (not the repository root)
+  into the same venv that `PY` points at.
 
   The scripts run `$PY` (default `python3`), so if you used a virtualenv point
   `PY` at it (in `.env` or exported, e.g. `PY=$(pwd)/.venv/bin/python`) — see
   [Setup](#setup).
-- `fireworks-ai`, `tinker`, and the [cookbook](https://github.com/fw-ai/cookbook)
-  installed (the cookbook via `git clone` — see `requirements.txt`).
-- A validated `POLICY_TRAINER` training shape for your base model (Step 0).
+- `fireworks-ai[training]` and the
+  [cookbook](https://github.com/fw-ai/cookbook) training package installed.
 
 ## Setup
 
@@ -117,20 +120,24 @@ PY=/path/to/venv/bin/python             # the python where you installed the dep
 `PY` (in `.env` or exported) — or activate the venv — otherwise the steps run
 against the wrong interpreter and imports fail.
 
-## Step 0 — Base model + validated training shape (public, pre-created)
+## Step 0 — Base model (public, pre-created)
 
-All three Qwen3 Embedding bases are **public** (owned by `pyroworks`) and their
-validated `POLICY_TRAINER` training shapes are **public** (owned by
-`accounts/fireworks`) — so you can run this **in your own account** with no
-`pyroworks` membership. Set `FIREWORKS_ACCOUNT_ID` to your own account and pick
-one row below; the trained/embedding models you create land in your account.
+All three Qwen3 Embedding bases are **public** (owned by `pyroworks`), so you can
+run this **in your own account** with no `pyroworks` membership. Set
+`FIREWORKS_ACCOUNT_ID` to your own account and pick one row below; the
+trained/embedding models you create land in your account.
 
 
-| Model      | BASE_MODEL                                              | TRAINING_SHAPE                                                                  | TOKENIZER         |
-| ---------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-0-6b-ft-base` | `accounts/fireworks/trainingShapes/qwen3-embedding-base-0-6b/versions/yn5j1jk9` | `Qwen/Qwen3-Embedding-0.6B` |
-| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-4b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-4b/versions/b5dzfhsp`   | `Qwen/Qwen3-Embedding-4B`   |
-| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-8b-ft-base`   | `accounts/fireworks/trainingShapes/qwen3-embedding-base-8b/versions/e3oirzs4`   | `Qwen/Qwen3-Embedding-8B`   |
+| Model      | BASE_MODEL                                              | TOKENIZER_MODEL                  |
+| ---------- | ------------------------------------------------------- | -------------------------------- |
+| Qwen3-0.6B | `accounts/pyroworks/models/qwen3-embedding-0-6b-ft-base` | `Qwen/Qwen3-Embedding-0.6B`      |
+| Qwen3-4B   | `accounts/pyroworks/models/qwen3-embedding-4b-ft-base`   | `Qwen/Qwen3-Embedding-4B`        |
+| Qwen3-8B   | `accounts/pyroworks/models/qwen3-embedding-8b-ft-base`   | `Qwen/Qwen3-Embedding-8B`        |
+
+Leave `TRAINING_SHAPE` empty (the default). The Training SDK then selects a
+current validated shape compatible with `BASE_MODEL`. Pin a shape only when its
+snapshot `base_model` exactly matches `BASE_MODEL`; stale shapes can fail during
+trainer startup in the `regional-model-artifacts` container.
 
 
 These are **tunable bases** whose vocab matches the Qwen3-Embedding tokenizer, so

@@ -13,6 +13,17 @@ if [ -z "${COOKBOOK_DIR:-}" ]; then
 fi
 export PYTHONPATH="${COOKBOOK_DIR}:${PYTHONPATH:-}"
 
+if ! "$PY" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+  echo "Step 2 requires Python 3.11+ (PY currently points to: $PY)" >&2
+  exit 1
+fi
+if ! "$PY" -c 'import fireworks.training.sdk; import training.recipes.embedding_loop'; then
+  echo "Training dependencies are missing or incompatible. In the PY environment run:" >&2
+  echo "  pip install 'fireworks-ai[training]'" >&2
+  echo "  pip install -e \"$COOKBOOK_DIR/training\"" >&2
+  exit 1
+fi
+
 # The recipe pools with pooling="last" and tokenizes with add_special_tokens=True,
 # so training reads the LAST token's hidden state. To match the EMBEDDING serving
 # path (which appends <|endoftext|> and last-token-pools), training MUST tokenize
