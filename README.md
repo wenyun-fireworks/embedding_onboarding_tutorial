@@ -244,7 +244,10 @@ Runs three things:
 1. a raw `/v1/embeddings` smoke test;
 2. an **input-form invariance** check (`src/check_input_invariance.py`) — asserts
    that embedding a raw string returns the same vector as embedding that string's
-   tokenized `input_ids` (hard-fails on mismatch);
+   tokenized `input_ids`, plus a control asserting that the same ids *without* the
+   trailing `<|endoftext|>` do **not** match. Together these prove the server
+   appends the EOS token to raw text and pools on it, exactly as the model was
+   trained. Both hard-fail;
 3. base-vs-fine-tuned retrieval metrics.
 
 The baseline is a strong off-the-shelf **serverless** embedding model
