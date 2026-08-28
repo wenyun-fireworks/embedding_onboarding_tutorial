@@ -31,8 +31,8 @@ def main() -> None:
     p.add_argument("--tokenizer-model", default="Qwen/Qwen3-Embedding-8B",
                    help="HuggingFace tokenizer name matching the base model (client-side tokenization).")
     p.add_argument("--dataset", default=os.path.join(C.DATA_DIR, "train_pairs.jsonl"))
-    p.add_argument("--output-model-id", default=os.environ.get("TRAINED_MODEL_ID", "qwen3-finetuned-trained"),
-                   help="Promote the final checkpoint to this model id (downloaded + re-uploaded later).")
+    p.add_argument("--output-model-id", default=os.environ.get("TRAINED_MODEL_ID", "qwen3-finetuned"),
+                   help="Promote the final checkpoint to this model id; it is what you deploy in step 3.")
     p.add_argument("--output-mode", default="contrastive_loss",
                    choices=("embedding", "cos_similarity_matrix", "contrastive_loss"))
     p.add_argument("--epochs", type=int, default=15)
@@ -41,6 +41,9 @@ def main() -> None:
     p.add_argument("--learning-rate", type=float, default=1e-5)
     p.add_argument("--lora-rank", type=int, default=0, help="0 = full-parameter; 32 = cheap swappable adapter.")
     p.add_argument("--training-shape", default="", help="Blank lets the platform choose infra.")
+    p.add_argument("--region", default="",
+                   help="Trainer placement region enum, e.g. EU_ICELAND_2. Blank = GLOBAL. Set this "
+                        "when GLOBAL placement stalls because the picked region is out of GPUs.")
     args = p.parse_args()
 
     # Imported here so `--help` works without the cookbook installed.
@@ -64,7 +67,7 @@ def main() -> None:
         batch_size=args.batch_size,
         lora_rank=args.lora_rank,
         output_model_id=args.output_model_id,
-        trainer=TrainerConfig(training_shape_id=args.training_shape),
+        trainer=TrainerConfig(training_shape_id=args.training_shape, region=args.region or None),
     )
 
     print(f"Starting Fireworks trainer: base={args.base_model} mode={args.output_mode} "

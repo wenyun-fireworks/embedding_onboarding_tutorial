@@ -200,6 +200,14 @@ The promoted model inherits `Kind: EMBEDDING_MODEL` from the base, so it is read
 to deploy as-is (see [Why…](#why-the-model-kind-matters)). Confirm before moving
 on:
 
+> **If the job stays in `JOB_STATE_PENDING` with an empty status**, the region
+> GLOBAL picked has no free GPUs of the accelerator it chose. Set
+> `TRAINING_REGION` in `.env` (e.g. `EU_ICELAND_2`) and rerun. Pinning a region
+> also changes which accelerator the platform selects, so if the create then
+> fails with `accelerator_type X is not supported in region Y`, pick a region
+> that has X — `firectl quota list -a "$FIREWORKS_ACCOUNT_ID"` lists per-region
+> availability.
+
 ```bash
 firectl get model "$TRAINED_MODEL_ID" -a "$FIREWORKS_ACCOUNT_ID"   # State: READY, Kind: EMBEDDING_MODEL
 ```
