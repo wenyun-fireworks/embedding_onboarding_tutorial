@@ -1,11 +1,11 @@
 # Full-Parameter Embedding Fine-Tuning on Fireworks — End-to-End
 
-Minimal runbook: **prepare data → train → download → upload as embedding model →
-deploy → test**. Training runs on the Fireworks Training SDK (GPU provisioned for
-you) via the cookbook recipe `training.recipes.embedding_loop`. The trained
-checkpoint is then **re-registered as an `EMBEDDING_MODEL`** and deployed on the
-embedding serving path — this is what makes raw-text embeddings correct and
-**input-form invariant** (see [Why re-register…](#why-re-register-as-an-embedding_model)).
+Minimal runbook: **prepare data → train → deploy → test**. Training runs on the
+Fireworks Training SDK (GPU provisioned for you) via the cookbook recipe
+`training.recipes.embedding_loop`. Because the base is an `EMBEDDING_MODEL`, the
+fine-tuned checkpoint is promoted as one too, so it deploys straight onto the
+embedding serving path — which is what makes raw-text embeddings correct and
+**input-form invariant** (see [Why the model kind matters](#why-the-model-kind-matters)).
 Commands mirror the numbered scripts in `scripts/`.
 
 ## How it works
@@ -17,47 +17,43 @@ Commands mirror the numbered scripts in `scripts/`.
  ┌────────────────────────┐  Fireworks Training SDK (embedding_loop recipe):
  │ 1. Prepare data        │  provisions a trainer, runs contrastive InfoNCE with
  │ 2. Train (SDK)         │  in-batch negatives, promotes the final checkpoint
- └────────────────────────┘  to a model ($TRAINED_MODEL_ID, Kind HF_BASE_MODEL)
-        │  firectl download model
-        ▼
- ┌────────────────────────┐
- │ 3. Download checkpoint  │  pull the trained HF checkpoint locally
- │ 4. Upload as EMBEDDING  │  `firectl create model --embedding`
- └────────────────────────┘  -> $EMBEDDING_MODEL_ID (Kind EMBEDDING_MODEL)
+ └────────────────────────┘  to a model ($TRAINED_MODEL_ID, Kind EMBEDDING_MODEL)
         │  firectl create deployment
         ▼
  ┌────────────────────────┐
- │ 5. Deploy embedding    │  dedicated deployment w/ embedding deployment shape
+ │ 3. Deploy embedding    │  dedicated deployment w/ embedding deployment shape
  └────────────────────────┘  (...-minimal) -> embedding serving path, /v1/embeddings
         │  /v1/embeddings
         ▼
  ┌────────────────────────┐
- │ 6. Inference + eval    │  input-form invariance check (raw text == input_ids)
+ │ 4. Inference + eval    │  input-form invariance check (raw text == input_ids)
  │                        │  + base vs fine-tuned nDCG@10 / Recall@10 / MRR
  └────────────────────────┘
 ```
 
-## Why re-register as an `EMBEDDING_MODEL`
+## Why the model kind matters
 
-The trainer promotes the fine-tuned checkpoint as `Kind: HF_BASE_MODEL` (a
-*generative* base). You can deploy that directly and it will answer
-`/v1/embeddings`, **but** its embeddings are produced on the generative serving
-path, where raw-string input and pre-tokenized `input_ids` are **not guaranteed
-to tokenize/pool identically** — so raw-text embeddings can be subtly wrong.
+Embeddings served on the *generative* path are subtly wrong: raw-string input and
+pre-tokenized `input_ids` are **not guaranteed to tokenize/pool identically**. The
+correct, **input-form invariant** path is the dedicated embedding one, which
+appends `<|endoftext|>` and applies last-token pooling — matching how the model was
+trained (the recipe tokenizes with `add_special_tokens=True`).
 
-Re-registering the same weights with `--embedding` (`Kind: EMBEDDING_MODEL`) and
-deploying with an **embedding deployment shape** (Step 5) puts them on the
-dedicated **embedding serving path**, which appends `<|endoftext|>` and applies
-last-token pooling — matching how the model was trained (the recipe tokenizes with
-`add_special_tokens=True`). This makes it **input-form invariant**: embedding a
-raw string returns the same vector as embedding that string's token ids. Step 6
-asserts this equivalence. (`Kind: EMBEDDING_MODEL` is also what serverless
-`/v1/embeddings` requires.)
+Two things put your fine-tune on that path, and both are automatic here:
 
-Both parts matter: `--embedding` sets the kind, but the **deployment shape** is
-what routes a dedicated deployment to the embedding serving path. A plain
-deployment (no shape) runs the generative path and skips the `<|endoftext|>`
-append, so raw-text embeddings come out wrong.
+1. **The model kind.** A full-parameter fine-tune of a `Kind: EMBEDDING_MODEL`
+   base is promoted as `EMBEDDING_MODEL` itself, so `$TRAINED_MODEL_ID` is
+   servable as embeddings the moment training finishes. The Step 0 bases are all
+   embedding-kind, so there is nothing to do. (This is also what serverless
+   `/v1/embeddings` requires. Note it applies to full-parameter tuning; a LoRA run
+   produces a PEFT addon instead.)
+2. **The deployment shape.** A dedicated deployment only routes to the embedding
+   serving path when created with an embedding **deployment shape** (Step 3). A
+   plain deployment without one runs the generative path and skips the
+   `<|endoftext|>` append, so raw-text embeddings come out wrong.
+
+Step 4 asserts the resulting equivalence: embedding a raw string returns the same
+vector as embedding that string's token ids.
 
 ## Why full-parameter embedding tuning
 
@@ -99,12 +95,13 @@ pip install -e cookbook/training
   [Setup](#setup).
 - `fireworks-ai[training]` and the
   [cookbook](https://github.com/fw-ai/cookbook) training package installed.
+- A payment method on the account: Step 3 creates a billable dedicated deployment.
 
 ## Setup
 
 The runnable scripts and all the code live in this repo, so you can dig into any
 step: `scripts/` holds the numbered stages (`01_prepare_data.sh` …
-`06_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
+`04_test_inference.sh`, run in order), `src/` holds the Python, and `.env.example`
 (copy to `.env`) configures everything below.
 
 Two local paths the scripts need — set them **in `.env`** or **export** them
@@ -122,10 +119,11 @@ against the wrong interpreter and imports fail.
 
 ## Step 0 — Base model (public, pre-created)
 
-All three Qwen3 Embedding bases are **public** (owned by `pyroworks`), so you can
-run this **in your own account** with no `pyroworks` membership. Set
-`FIREWORKS_ACCOUNT_ID` to your own account and pick one row below; the
-trained/embedding models you create land in your account.
+All three Qwen3 Embedding bases are **public** (owned by `pyroworks`) and
+registered as `Kind: EMBEDDING_MODEL`, so you can run this **in your own account**
+with no `pyroworks` membership. Set `FIREWORKS_ACCOUNT_ID` to your own account and
+pick one row below; the fine-tuned model you create lands in your account and
+inherits the embedding kind.
 
 
 | Model      | BASE_MODEL                                              | TOKENIZER_MODEL                  |
@@ -140,15 +138,17 @@ snapshot `base_model` exactly matches `BASE_MODEL`; stale shapes can fail during
 trainer startup in the `regional-model-artifacts` container.
 
 
-These are **tunable bases** whose vocab matches the Qwen3-Embedding tokenizer, so
-the fine-tune serves directly with no tokenizer fix‑up. Use the **`Qwen/Qwen3-Embedding-<size>`**
+These are **tunable embedding bases** whose vocab matches the Qwen3-Embedding
+tokenizer, so the fine-tune serves directly with no tokenizer fix‑up. Use the
+**`Qwen/Qwen3-Embedding-<size>`**
 tokenizer (above), **not** the base-LM `Qwen/Qwen3-<size>`: only the embedding
 tokenizer's post-processor appends `<|endoftext|>` with `add_special_tokens=True`,
 so the recipe's `pooling="last"` trains on the EOS token and matches the embedding
-serving path. To stand up your own base from scratch you'd register a tunable base
-and create + validate a matching `POLICY_TRAINER` shape.
+serving path. To stand up your own base from scratch you'd register it with
+`firectl create model --embedding` and create + validate a matching
+`POLICY_TRAINER` shape.
 
-Step 5 deploys with a public **embedding deployment shape** (also owned by
+Step 3 deploys with a public **embedding deployment shape** (also owned by
 `accounts/fireworks`); pick the one matching your size:
 
 | Model      | DEPLOYMENT_SHAPE                                                     |
@@ -179,7 +179,7 @@ positive is the passage `title` + `\n` + `text`:
 ```
 
 Only the **train** split is emitted; the eval split is held out for the
-before/after retrieval metrics in Step 6. **In-batch negatives are generated
+before/after retrieval metrics in Step 4. **In-batch negatives are generated
 automatically** during training, so you never supply negatives. To use your own
 data, replace the files in `data/` — or just drop in your own `train_pairs.jsonl`
 with the same `{"query": ..., "positive": ...}` shape.
@@ -193,49 +193,37 @@ bash scripts/01_prepare_data.sh   # → data/train_pairs.jsonl (22 train, 8 eval
 ## Step 2 — Train
 
 ```bash
-bash scripts/02_train.sh          # ~30 steps; promotes model $TRAINED_MODEL_ID (Kind HF_BASE_MODEL)
+bash scripts/02_train.sh          # ~30 steps; promotes model $TRAINED_MODEL_ID (Kind EMBEDDING_MODEL)
 ```
 
-## Step 3 — Download the trained checkpoint
+The promoted model inherits `Kind: EMBEDDING_MODEL` from the base, so it is ready
+to deploy as-is (see [Why…](#why-the-model-kind-matters)). Confirm before moving
+on:
+
+> **If the job stays in `JOB_STATE_PENDING` with an empty status**, the region
+> GLOBAL picked has no free GPUs of the accelerator it chose. Set
+> `TRAINING_REGION` in `.env` (e.g. `EU_ICELAND_2`) and rerun. Pinning a region
+> also changes which accelerator the platform selects, so if the create then
+> fails with `accelerator_type X is not supported in region Y`, pick a region
+> that has X — `firectl quota list -a "$FIREWORKS_ACCOUNT_ID"` lists per-region
+> availability.
 
 ```bash
-bash scripts/03_download_checkpoint.sh   # → export/$TRAINED_MODEL_ID/...
+firectl get model "$TRAINED_MODEL_ID" -a "$FIREWORKS_ACCOUNT_ID"   # State: READY, Kind: EMBEDDING_MODEL
 ```
 
-Pulls the trained checkpoint (promoted as `Kind: HF_BASE_MODEL`) to a local
-`export/` dir so it can be re-registered as an embedding model next.
-
-> Requires model-download access on your account. If `firectl download model`
-> returns `FailedPrecondition: model downloading is restricted`, request access
-> from Fireworks.
-
-## Step 4 — Upload as an embedding model
+## Step 3 — Deploy the fine-tuned model
 
 ```bash
-bash scripts/04_upload_embedding_model.sh   # firectl create model --embedding
+bash scripts/03_deploy.sh
 ```
 
-Re-uploads the downloaded checkpoint with `--embedding`, creating
-`$EMBEDDING_MODEL_ID` (`Kind: EMBEDDING_MODEL`) — the kind that serves on the
-correct, input-form invariant embedding path (see
-[Why…](#why-re-register-as-an-embedding_model)). Wait for `State: READY`:
-
-```bash
-firectl get model "$EMBEDDING_MODEL_ID" -a "$FIREWORKS_ACCOUNT_ID"
-```
-
-## Step 5 — Deploy the embedding model
-
-```bash
-bash scripts/05_deploy.sh
-```
-
-Creates a **self-serve dedicated deployment** of `$EMBEDDING_MODEL_ID` using an
+Creates a **self-serve dedicated deployment** of `$TRAINED_MODEL_ID` using an
 **embedding deployment shape** (`DEPLOYMENT_SHAPE` in `.env`, the `...-minimal`
 preset for your size). The shape is what routes the model to the embedding
 serving path that appends `<|endoftext|>` and applies last-token pooling — i.e.
 it makes raw-text embeddings **input-form invariant** and consistent with how the
-model was trained (Step 6 verifies this). A plain deployment without a shape runs
+model was trained (Step 4 verifies this). A plain deployment without a shape runs
 the generative path and does **not** append `<|endoftext|>`, producing wrong
 embeddings. The shape also selects the GPU/precision (no `ACCELERATOR_TYPE`
 needed); leave `REGION` empty for GLOBAL. Then grab the deployment id:
@@ -246,17 +234,20 @@ firectl list deployments -a "$FIREWORKS_ACCOUNT_ID"   # copy the id → DEPLOYME
 
 Delete the deployment when done to stop billing (see [Cleanup](#cleanup)).
 
-## Step 6 — Test
+## Step 4 — Test
 
 ```bash
-bash scripts/06_test_inference.sh   # invariance check + base-vs-fine-tuned nDCG@10 / Recall@10 / MRR
+bash scripts/04_test_inference.sh   # invariance check + base-vs-fine-tuned nDCG@10 / Recall@10 / MRR
 ```
 
 Runs three things:
 1. a raw `/v1/embeddings` smoke test;
 2. an **input-form invariance** check (`src/check_input_invariance.py`) — asserts
    that embedding a raw string returns the same vector as embedding that string's
-   tokenized `input_ids` (hard-fails on mismatch);
+   tokenized `input_ids`, plus a control asserting that the same ids *without* the
+   trailing `<|endoftext|>` do **not** match. Together these prove the server
+   appends the EOS token to raw text and pools on it, exactly as the model was
+   trained. Both hard-fail;
 3. base-vs-fine-tuned retrieval metrics.
 
 The baseline is a strong off-the-shelf **serverless** embedding model
@@ -272,13 +263,12 @@ comparison from the [Why](#why-full-parameter-embedding-tuning) section.
 ```bash
 # deployment first (billing); --ignore-checks if it has served requests
 firectl delete deployment "$DEPLOYMENT_ID"  -a "$FIREWORKS_ACCOUNT_ID" --ignore-checks
-# then the models you created (the shared base can be kept for future fine-tunes)
-firectl delete model "$EMBEDDING_MODEL_ID"  -a "$FIREWORKS_ACCOUNT_ID"
+# then the model you created (the shared base can be kept for future fine-tunes)
 firectl delete model "$TRAINED_MODEL_ID"    -a "$FIREWORKS_ACCOUNT_ID"
 ```
 
 > Delete the deployment **first** and wait for it to reach `DELETED` before
-> deleting the models — otherwise `firectl delete model` fails with
+> deleting the model — otherwise `firectl delete model` fails with
 > `FailedPrecondition: cannot delete model with active deployments`.
 
 ## Notes

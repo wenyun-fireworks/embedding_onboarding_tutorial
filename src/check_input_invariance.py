@@ -13,7 +13,15 @@ serving path (correct tokenization + pooling). A generative deployment
 (``HF_BASE_MODEL``) does not guarantee it, so raw-text embeddings there can be
 silently wrong — which is exactly what this check guards against.
 
-Exits non-zero if any sample fails the cosine threshold, so step 6 hard-fails.
+The match alone would be vacuous if the server simply echoed whatever tokens it
+was given, so each sample also runs a **control**: the same ids *without* the
+trailing ``<|endoftext|>`` must produce a clearly different vector. Passing both
+proves the server appends the EOS token to raw text and pools on it, which is
+what the model was trained for (``add_special_tokens=True`` + ``pooling="last"``).
+Without the append, pooling reads the last content token instead and retrieval
+degrades silently.
+
+Exits non-zero if any sample fails either assertion, so step 4 hard-fails.
 """
 from __future__ import annotations
 
@@ -56,6 +64,10 @@ def main() -> None:
                         "e.g. Qwen/Qwen3-Embedding-0.6B")
     p.add_argument("--threshold", type=float, default=0.9999,
                    help="min cosine(raw, ids) required to pass (default 0.9999)")
+    p.add_argument("--no-eos-max", type=float, default=0.99,
+                   help="control: max cosine(raw, ids-without-EOS) allowed. A value at or "
+                        "above this means the server is NOT appending <|endoftext|> to raw "
+                        "text, so the match above proves nothing (default 0.99)")
     p.add_argument("--n", type=int, default=4, help="number of corpus passages to test")
     args = p.parse_args()
 
@@ -91,12 +103,25 @@ def main() -> None:
         vn = ids_vec / (np.linalg.norm(ids_vec) or 1.0)
         max_abs = float(np.max(np.abs(rn - vn)))
         ok = c >= args.threshold
-        all_pass &= ok
         status = "PASS" if ok else "FAIL"
         appends_eot = bool(ids and ids[-1] == eot)
         print(f"  [{status}] doc{i}: cos(raw, ids)={c:.6f} maxabs={max_abs:.2e} "
               f"(dim={raw.size}, ntok={len(ids)}, last_id={ids[-1]}, ends_with_eot={appends_eot}) "
               f"\"{text[:44]}...\"")
+
+        # Control: strip the trailing <|endoftext|> the server is supposed to add
+        # for raw text. If that still matches, the server is not appending it and
+        # the assertion above is vacuous.
+        bare = tok(text, add_special_tokens=False)["input_ids"]
+        if bare and bare[-1] == eot:
+            bare = bare[:-1]
+        c_bare = _cos(raw, _post_embeddings([bare], args.model, api_key, base_url)[0])
+        ok_bare = c_bare < args.no_eos_max
+        status_bare = "PASS" if ok_bare else "FAIL"
+        print(f"      [{status_bare}] control: cos(raw, ids-without-EOS)={c_bare:.6f} "
+              f"(want < {args.no_eos_max}; proves the server appends <|endoftext|>)")
+
+        all_pass &= ok and ok_bare
 
     print(f"\nINPUT-FORM INVARIANCE: {'PASS' if all_pass else 'FAIL'} "
           f"(threshold cos>={args.threshold})")

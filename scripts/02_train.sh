@@ -42,7 +42,8 @@ esac
   --base-model "${BASE_MODEL:-accounts/fireworks/models/qwen3-embedding-8b}" \
   --tokenizer-model "$TRAIN_TOKENIZER" \
   --training-shape "${TRAINING_SHAPE:-}" \
+  --region "${TRAINING_REGION:-}" \
   --lora-rank "${LORA_RANK:-0}" \
-  --output-model-id "${TRAINED_MODEL_ID:-qwen3-finetuned-trained}" \
+  --output-model-id "${TRAINED_MODEL_ID:-qwen3-finetuned}" \
   --epochs "${EPOCHS:-15}" \
   --batch-size "${BATCH_SIZE:-8}"
