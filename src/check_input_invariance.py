@@ -13,7 +13,7 @@ serving path (correct tokenization + pooling). A generative deployment
 (``HF_BASE_MODEL``) does not guarantee it, so raw-text embeddings there can be
 silently wrong — which is exactly what this check guards against.
 
-Exits non-zero if any sample fails the cosine threshold, so step 6 hard-fails.
+Exits non-zero if any sample fails the cosine threshold, so step 4 hard-fails.
 """
 from __future__ import annotations
 
